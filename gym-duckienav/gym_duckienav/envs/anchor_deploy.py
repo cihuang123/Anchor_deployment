@@ -95,10 +95,10 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                             
                             # dropoff
                             elif a==4: 
-                                if (node_deployed < 1): # anchor 在車上
+                                if (node_deployed < 1): # anchor in car
                                     newnode_deployed = 1
-                                    done = True # 下完anchor 就結束
-#                                     if (self.coverage[row][col] == False): # 超出邊界範圍 扣10分                   
+                                    done = True 
+#                                     if (self.coverage[row][col] == False):               
 #                                         reward = -10                                       
                                         
 #                                     else:
@@ -139,8 +139,8 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
     def fill_coverage(self, row, col):
         for i in range(max(row-3, 0),min(row+3, maxR)+1):
             for j in range(max(col-3,0), min(col+3, maxC)+1):
-                if ((abs(i - row) + abs(j - col)) <= 3): # 會切成菱形
-                    if (self.desc[1+i, 2*j+1] != b"O"):# 牆壁沒有訊號
+                if ((abs(i - row) + abs(j - col)) <= 3): 
+                    if (self.desc[1+i, 2*j+1] != b"O"):
                         self.coverage[i][j] = True
 #                         # wall effects
 #                         for i in range(max(row-2, 0),min(row+2, maxR)+1):
@@ -152,8 +152,8 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         coverage = np.zeros((14,9), dtype='bool')
         for i in range(max(row-3, 0),min(row+3, maxR)+1):
             for j in range(max(col-3,0), min(col+3, maxC)+1):
-                if ((abs(i - row) + abs(j - col)) <= 3): # 會切成菱形
-                    if (self.desc[1+i, 2*j+1] != b"O"):# 牆壁沒有訊號
+                if ((abs(i - row) + abs(j - col)) <= 3): 
+                    if (self.desc[1+i, 2*j+1] != b"O"):
                         coverage[i][j] = True
         return coverage
 
@@ -167,28 +167,27 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         
         self.coverage = np.zeros((14,9), dtype='bool')
         
-        # 車上也有裝mesh
+       
         taxi_range = self.taxi_coverage(taxirow, taxicol)
         
         if node_deployed < 1: # anchor in taxi
             out[1+taxirow][2*taxicol+1] = utils.colorize(out[1+taxirow][2*taxicol+1], 'yellow', highlight=True)
             
-        else: # anchor 不在車上了 deploy了   
+        else: # The anchor has been deployed.
             
             if (self.node_deploy == False):
                 self.pi, self.pj = taxirow, taxicol
                 self.node_deploy = True
-            # deploy的位置 就是紀錄當下taxi現在的位置 
+            
             
             out[1+self.pi][2*self.pj+1] = utils.colorize(ul(out[1+self.pi][2*self.pj+1]), 'blue', highlight=True)
             self.fill_coverage(self.pi, self.pj) 
-            # anchor deploy下去 會變藍色
+            
             
             out[1+taxirow][2*taxicol+1] = utils.colorize(ul(out[1+taxirow][2*taxicol+1]), 'gray', highlight=True)
-            # 沒anchor的時候 會變灰色
-
+            
         
-        # 初始位置填顏色
+        
         di, dj = self.locs[init]
         out[1+di][2*dj+1] = utils.colorize(out[1+di][2*dj+1], 'magenta')
         self.fill_coverage(di, dj) 
