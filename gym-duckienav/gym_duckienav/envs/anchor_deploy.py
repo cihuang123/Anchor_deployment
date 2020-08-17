@@ -155,34 +155,39 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         assert 0 <= i < 14 
         return reversed(out)
     
-    def fill_coverage(self, row, col):
-        for i in range(max(row-3, 0),min(row+3, maxR)+1):
-            for j in range(max(col-3,0), min(col+3, maxC)+1):
-                if ((abs(i - row) + abs(j - col)) <= 3): 
-                    if (self.desc[1+i, 2*j+1] != b"O"):
-                        self.coverage[i][j] = True
+    def fill_coverage(self, row, col): # All APs
         
-#         AP_coverage = np.ones((14,9), dtype = True)
-#         # 扣掉沒訊號的部份
+        # At this moment, the location of taxi is the same as the location of the deploying AP.
+        Deploy_AP = self.taxi_coverage(row, col)
+        self.coverage = self.coverage + Deploy_AP
+        
 #         for i in range(max(row-3, 0),min(row+3, maxR)+1):
 #             for j in range(max(col-3,0), min(col+3, maxC)+1):
-#                 if ((abs(i - row) + abs(j - col)) > 3): # 會切成菱形
-#                     AP_coverage[i][j] = False
+#                 if ((abs(i - row) + abs(j - col)) <= 3): 
+#                     if (self.desc[1+i, 2*j+1] != b"O"):
+#                         self.coverage[i][j] = True
+        
+# #         AP_coverage = np.ones((14,9), dtype = True)
+# #         # 扣掉沒訊號的部份
+# #         for i in range(max(row-3, 0),min(row+3, maxR)+1):
+# #             for j in range(max(col-3,0), min(col+3, maxC)+1):
+# #                 if ((abs(i - row) + abs(j - col)) > 3): # 會切成菱形
+# #                     AP_coverage[i][j] = False
                     
-#                 if (self.desc[1+i, 2*j+1] == b"O"):# 牆壁沒有訊號
-#                     AP_coverage[i][j] = False
+# #                 if (self.desc[1+i, 2*j+1] == b"O"):# 牆壁沒有訊號
+# #                     AP_coverage[i][j] = False
                     
-#                     if ((i - row) >= 0): # 牆在車子的南邊
-#                         AP_coverage[i+1][j] = False
-#                     else: #牆在車子的北邊 
-#                         AP_coverage[i-1][j] = False
+# #                     if ((i - row) >= 0): # 牆在車子的南邊
+# #                         AP_coverage[i+1][j] = False
+# #                     else: #牆在車子的北邊 
+# #                         AP_coverage[i-1][j] = False
                     
-#                     if ((i - col) >= 0): # 牆在車子的東邊
-#                         AP_coverage[i][j+1] = False
-#                     else: #牆在車子的西邊 
-#                         AP_coverage[i][j-1] = False
+# #                     if ((i - col) >= 0): # 牆在車子的東邊
+# #                         AP_coverage[i][j+1] = False
+# #                     else: #牆在車子的西邊 
+# #                         AP_coverage[i][j-1] = False
                     
-#                      self.coverage = self.coverage + AP_coverage
+# #                      self.coverage = self.coverage + AP_coverage
                         
 
     def calculate_coverage_diff(self, taxirow, taxicol):
