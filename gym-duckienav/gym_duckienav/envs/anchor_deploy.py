@@ -24,7 +24,7 @@ MAP = [
 ]
 
 ACTIONS = ["South", "North", "East", "West", "Dropoff"]
-nS = 14*9*2*14*9*4 # row clo deployed? initail location 
+nS = 14*9*2*14*9*4 # row, col, deployed?, row, col, initail location 
 nR = 14 
 nC = 9
 maxR = nR-1
@@ -104,15 +104,15 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                                     elif a==4: 
                                         if (node_deployed < 1): # anchor in the taxi
                                             newnode_deployed = 1
-                                            done = True 
+                                            done = True # deploy all of the anchors
                                             newnode_row, newnode_col = row, col
                                             
                                             connected, coverage_diff = self.calculate_coverage_diff(row, col)
                                             
-                                            if (connected > 1): 
+                                            if (connected > 1): # This ap is connected to others.
                                                 reward = -2 + 2*coverage_diff  
                                                 
-                                            else: 
+                                            else: # over the coverage  OK
                                                 reward = -10
 
                                         else:
@@ -160,16 +160,39 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
             for j in range(max(col-3,0), min(col+3, maxC)+1):
                 if ((abs(i - row) + abs(j - col)) <= 3): 
                     if (self.desc[1+i, 2*j+1] != b"O"):
-                        self.coverage[i][j] = 1 
+                        self.coverage[i][j] = True
+        
+#         AP_coverage = np.ones((14,9), dtype = True)
+#         # 扣掉沒訊號的部份
+#         for i in range(max(row-3, 0),min(row+3, maxR)+1):
+#             for j in range(max(col-3,0), min(col+3, maxC)+1):
+#                 if ((abs(i - row) + abs(j - col)) > 3): # 會切成菱形
+#                     AP_coverage[i][j] = False
+                    
+#                 if (self.desc[1+i, 2*j+1] == b"O"):# 牆壁沒有訊號
+#                     AP_coverage[i][j] = False
+                    
+#                     if ((i - row) >= 0): # 牆在車子的南邊
+#                         AP_coverage[i+1][j] = False
+#                     else: #牆在車子的北邊 
+#                         AP_coverage[i-1][j] = False
+                    
+#                     if ((i - col) >= 0): # 牆在車子的東邊
+#                         AP_coverage[i][j+1] = False
+#                     else: #牆在車子的西邊 
+#                         AP_coverage[i][j-1] = False
+                    
+#                      self.coverage = self.coverage + AP_coverage
+                        
 
     def calculate_coverage_diff(self, taxirow, taxicol):
         
         taxi_range = self.taxi_coverage(taxirow, taxicol)
         
-        connected = np.max(taxi_range + self.coverage)
+        connected = np.max(np.array(taxi_range) + np.array(self.coverage))
         coverage_diff = 0
         
-        
+        # The ap of the taxi(== the ap at the taxi) is connected to other aps.
         if (np.max(connected) > 1):
             old = np.count_nonzero(self.coverage) 
             new = np.count_nonzero(taxi_range + self.coverage)
@@ -179,12 +202,38 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         
     
     def taxi_coverage(self, row, col):
-        coverage = np.zeros((14,9))
+        coverage = np.zeros((14,9), dtype = 'bool')
+#         print(max(row-3, 0),min(row+3, maxR)+1, max(col-3,0), min(col+3, maxC)+1)
+        coverage[max(row-3, 0):min(row+3, maxR)+1, max(col-3,0): min(col+3, maxC)+1] = True
+        
         for i in range(max(row-3, 0),min(row+3, maxR)+1):
             for j in range(max(col-3,0), min(col+3, maxC)+1):
-                if ((abs(i - row) + abs(j - col)) <= 3): 
-                    if (self.desc[1+i, 2*j+1] != b"O"):
-                        coverage[i][j] = True
+                
+                if ((abs(i - row) + abs(j - col)) > 3): # 
+                    coverage[i][j] = False
+                else:
+                    
+                    if (self.desc[1+i, 2*j+1] == b"O"):# no signal in the wall
+                        coverage[i][j] = False
+                        
+                        
+                        if ((i - row) > 0): # wall is at the south of the taxi
+                            coverage[min(i+1, maxR)][j] = False
+                            coverage[min(i+2, maxR)][j] = False
+                           
+                        elif ((i - row) < 0): # wall is at the north of the taxi
+                            coverage[max(i-1, 0)][j] = False
+                            coverage[max(i-2, 0)][j] = False
+
+                        if ((j - col) > 0): # wall is at the east of the taxi
+                            coverage[i][min(j+1,maxC)] = False
+                            coverage[i][min(j+2,maxC)] = False
+                            
+                        elif ((j - col) < 0): # wall is at the west of the taxi
+                            coverage[i][max(j-1,0)] = False
+                            coverage[i][max(j-2,0)] = False
+                        
+        
         return coverage
     
     
@@ -197,21 +246,32 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         taxirow, taxicol, node_deployed, node_row, node_col, init = self.decode(self.s)
         def ul(x): return "_" if x == " " else x
         
-        self.coverage = np.zeros((14,9))
+        self.coverage = np.zeros((14,9), dtype='bool')
         
-        
+        # Ap at the taxi
         taxi_range = self.taxi_coverage(taxirow, taxicol)
+        print('Render: ','(10,4)', taxi_range[10][4])
+        
         
         if node_deployed < 1: # anchor in taxi
             out[1+taxirow][2*taxicol+1] = utils.colorize(out[1+taxirow][2*taxicol+1], 'yellow', highlight=True)
             
-        else: 
+        else: # anchor 不在車上了 deploy了   
+            
+#             if (self.node_deploy == False):
+#                 self.pi, self.pj = taxirow, taxicol
+#                 self.node_deploy = True
+            # deploy的位置 就是紀錄當下taxi現在的位置 
             
             out[1+node_row][2*node_col+1] = utils.colorize(ul(out[1+node_row][2*node_col+1]), 'blue', highlight=True)
             self.fill_coverage(node_row, node_col) 
+            # anchor deploy下去 會變藍色
             
             out[1+taxirow][2*taxicol+1] = utils.colorize(ul(out[1+taxirow][2*taxicol+1]), 'gray', highlight=True)
+            # 沒anchor的時候 會變灰色
 
+        
+        # 初始位置填顏色
         di, dj = self.locs[init]
         out[1+di][2*dj+1] = utils.colorize(out[1+di][2*dj+1], 'magenta')
         self.fill_coverage(di, dj) 
@@ -222,6 +282,7 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                     out[1+row][2*col+1] = utils.colorize(ul(out[1+row][2*col+1]), 'green', highlight=True)
         
                 if (taxi_range[row][col] == True):
+                    
                     out[1+row][2*col+1] = utils.colorize(ul(out[1+row][2*col+1]), 'cyan', highlight=True)
         
         outfile.write("\n".join(["".join(row) for row in out])+"\n")
