@@ -23,8 +23,8 @@ MAP = [
     "+-----------------+",
 ]
 
-ACTIONS = ["South", "North", "East", "West", "Pickup", "Dropoff"]
-nS = 14*9*2*4 # row clo deployed? initail location 
+ACTIONS = ["South", "North", "East", "West", "Dropoff"]
+nS = 14*9*2*14*9*4 # row clo deployed? initail location 
 nR = 14 
 nC = 9
 maxR = nR-1
@@ -61,65 +61,78 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         for row in range(nR):
             for col in range(nC):
                 for node_deployed in range(2): # anchor (on taxi or deployed)
-                    for init in range(4): # initail location good
-                        state = self.encode(row, col, node_deployed, init) 
-                        
-#                         self.coverage = np.zeros((14,9), dtype='bool')
-#                         self.fill_coverage(locs[init][0], locs[init][1]) 
-                        
-                        if (row == locs[init][0] and col == locs[init][1] and node_deployed == 0): # good
-                            isd[state] += 1
-                            
-                        for a in range(nA):
-                            # defaults
-                            newrow, newcol, newnode_deployed = row, col, node_deployed
-                            reward = -0.1
-                            done = False
-                            taxiloc = (row, col)
-
-                            # south
-                            if a==0 and self.desc[1+row + 1, 2*col+1] != b"O":
-                                newrow = min(row+1, maxR)
-                            
-                            # north
-                            elif a==1 and self.desc[1+row -1, 2*col+1] != b"O":
-                                newrow = max(row-1, 0)
+                    for node_row in range(nR):
+                        for node_col in range(nC):
+                            for init in range(4): # initail location good
                                 
-                            # east
-                            if a==2 and self.desc[1+row,2*col+2]==b":":
-                                newcol = min(col+1, maxC)
-                                
-                            # west
-                            elif a==3 and self.desc[1+row,2*col]==b":":
-                                newcol = max(col-1, 0)
-                            
-                            # dropoff
-                            elif a==4: 
-                                if (node_deployed < 1): # anchor in car
-                                    newnode_deployed = 1
-                                    done = True 
-#                                     if (self.coverage[row][col] == False):               
-#                                         reward = -10                                       
-                                        
-#                                     else:
-#                                         reward = 10
+                                state = self.encode(row, col, node_deployed, node_row, node_col, init) 
+                        
+                                self.coverage = np.zeros((14,9), dtype='bool')
+                                self.fill_coverage(locs[init][0], locs[init][1]) 
 
-                                else:
-                                    reward = -2
+                                if (row == locs[init][0] and col == locs[init][1]) \
+                                and (node_deployed == 0) \
+                                and (node_row == locs[init][0] and node_col == locs[init][1]): 
+                                    isd[state] += 1
+
+                                for a in range(nA):
+                                    # defaults
+                                    newrow, newcol, newnode_deployed = row, col, node_deployed
+                                    newnode_row, newnode_col = node_row, node_col
                                     
-                            
-                            newstate = self.encode(newrow, newcol, newnode_deployed, init)
-                            P[state][a].append((1.0, newstate, reward, done))
+                                    reward = -0.1
+                                    done = False
+                                    taxiloc = (row, col)
+
+                                    # south
+                                    if a==0 and self.desc[1+row + 1, 2*col+1] != b"O":
+                                        newrow = min(row+1, maxR)
+
+                                    # north
+                                    elif a==1 and self.desc[1+row -1, 2*col+1] != b"O":
+                                        newrow = max(row-1, 0)
+
+                                    # east
+                                    if a==2 and self.desc[1+row,2*col+2]==b":":
+                                        newcol = min(col+1, maxC)
+
+                                    # west
+                                    elif a==3 and self.desc[1+row,2*col]==b":":
+                                        newcol = max(col-1, 0)
+
+                                    # dropoff
+                                    elif a==4: 
+                                        if (node_deployed < 1): # anchor in the taxi
+                                            newnode_deployed = 1
+                                            done = True # 下完anchor 就結束
+                                            newnode_row, newnode_col = row, col
+                                            
+                                            if (self.coverage[row][col] == False): # 超出邊界範圍 扣10分                  
+                                                reward = -10                                       
+
+                                            else:
+                                                reward = -2 + 2*
+
+                                        else:
+                                            reward = -2
+
+
+                                    newstate = self.encode(newrow, newcol, newnode_deployed, newnode_row, newnode_col,init)
+                                    P[state][a].append((1.0, newstate, reward, done))
         isd /= isd.sum()
         discrete.DiscreteEnv.__init__(self, nS, nA, P, isd)
 
-    def encode(self, taxirow, taxicol, passloc, init):
-        # (14) 9, 2, 4
+    def encode(self, taxirow, taxicol, node_deployed, node_row, node_col, init):
+         # (14) 9, 2, 14, 9, 4
         i = taxirow
         i *= 9 
         i += taxicol
         i *= 2
-        i += passloc
+        i += node_deployed
+        i *= 14
+        i += node_row
+        i *= 9
+        i += node_col
         i *= 4
         i += init
         return i
@@ -128,6 +141,10 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         out = []
         out.append(i % 4)
         i = i // 4
+        out.append(i % 9)
+        i = i // 9
+        out.append(i % 14)
+        i = i // 14
         out.append(i % 2)
         i = i // 2
         out.append(i % 9)
@@ -139,8 +156,8 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
     def fill_coverage(self, row, col):
         for i in range(max(row-3, 0),min(row+3, maxR)+1):
             for j in range(max(col-3,0), min(col+3, maxC)+1):
-                if ((abs(i - row) + abs(j - col)) <= 3): 
-                    if (self.desc[1+i, 2*j+1] != b"O"):
+                if ((abs(i - row) + abs(j - col)) <= 3): # 會切成菱形
+                    if (self.desc[1+i, 2*j+1] != b"O"):# 牆壁沒有訊號
                         self.coverage[i][j] = True
 #                         # wall effects
 #                         for i in range(max(row-2, 0),min(row+2, maxR)+1):
@@ -152,42 +169,45 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         coverage = np.zeros((14,9), dtype='bool')
         for i in range(max(row-3, 0),min(row+3, maxR)+1):
             for j in range(max(col-3,0), min(col+3, maxC)+1):
-                if ((abs(i - row) + abs(j - col)) <= 3): 
-                    if (self.desc[1+i, 2*j+1] != b"O"):
+                if ((abs(i - row) + abs(j - col)) <= 3): # 會切成菱形
+                    if (self.desc[1+i, 2*j+1] != b"O"):# 牆壁沒有訊號
                         coverage[i][j] = True
         return coverage
+    
+    
 
     def render(self, mode='human'):
         outfile = StringIO() if mode == 'ansi' else sys.stdout
 
         out = self.desc.copy().tolist()
         out = [[c.decode('utf-8') for c in line] for line in out]
-        taxirow, taxicol, node_deployed, init = self.decode(self.s)
+        taxirow, taxicol, node_deployed, node_row, node_col, init = self.decode(self.s)
         def ul(x): return "_" if x == " " else x
         
         self.coverage = np.zeros((14,9), dtype='bool')
         
-       
+        # 車上也有裝mesh
         taxi_range = self.taxi_coverage(taxirow, taxicol)
         
         if node_deployed < 1: # anchor in taxi
             out[1+taxirow][2*taxicol+1] = utils.colorize(out[1+taxirow][2*taxicol+1], 'yellow', highlight=True)
             
-        else: # The anchor has been deployed.
+        else: # anchor 不在車上了 deploy了   
             
-            if (self.node_deploy == False):
-                self.pi, self.pj = taxirow, taxicol
-                self.node_deploy = True
+#             if (self.node_deploy == False):
+#                 self.pi, self.pj = taxirow, taxicol
+#                 self.node_deploy = True
+            # deploy的位置 就是紀錄當下taxi現在的位置 
             
-            
-            out[1+self.pi][2*self.pj+1] = utils.colorize(ul(out[1+self.pi][2*self.pj+1]), 'blue', highlight=True)
-            self.fill_coverage(self.pi, self.pj) 
-            
+            out[1+node_row][2*node_col+1] = utils.colorize(ul(out[1+node_row][2*node_col+1]), 'blue', highlight=True)
+            self.fill_coverage(node_row, node_col) 
+            # anchor deploy下去 會變藍色
             
             out[1+taxirow][2*taxicol+1] = utils.colorize(ul(out[1+taxirow][2*taxicol+1]), 'gray', highlight=True)
-            
+            # 沒anchor的時候 會變灰色
+
         
-        
+        # 初始位置填顏色
         di, dj = self.locs[init]
         out[1+di][2*dj+1] = utils.colorize(out[1+di][2*dj+1], 'magenta')
         self.fill_coverage(di, dj) 
