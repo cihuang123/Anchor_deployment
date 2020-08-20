@@ -38,7 +38,6 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
     Modified from The Taxi Problem 
     from "Hierarchical Reinforcement Learning with the MAXQ Value Function Decomposition"
     by Tom Dietterich
-
     rendering:    
     - magenta: initial location (Base station)
     - green: The signal strength is good enough. 
@@ -72,6 +71,7 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                         
                                 self.coverage = np.zeros((14,9), dtype='bool')
                                 self.fill_coverage(locs[init][0], locs[init][1]) 
+                                connected, coverage_diff = self.calculate_coverage_diff(row, col)
 
                                 if (row == locs[init][0] and col == locs[init][1]) \
                                 and (node_deployed == 0) \
@@ -110,20 +110,13 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                                             newnode_deployed = 1
                                             done = True  # deploy all of the anchors
                                             newnode_row, newnode_col = row, col
-                                            connected, coverage_diff = self.calculate_coverage_diff(row, col)
+                                            
                                             self.fill_coverage(row, col)
-                                            
-                                            
-                                            if (connected > 1): # This ap is connected to others.
+                                            if (connected == True): # This ap is connected to others.
+                                                reward = 2*coverage_diff
                                                 
-                                                reward = -2 + 2*coverage_diff
-                                                
-                                            else: # over the coverage  OK--> Not OK now
-                                                reward = -10
-
-                                        else:
-                                            reward = -2
-                                        
+                                    if (connected == False):
+                                        reward = reward -10  
 
 
                                     newstate = self.encode(newrow, newcol, newnode_deployed, newnode_row, newnode_col,init)
@@ -172,21 +165,17 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
     def calculate_coverage_diff(self, taxirow, taxicol):
         
         taxi_range = self.taxi_coverage(taxirow, taxicol)
-        taxi_range_temp = np.array(taxi_range).astype(int)
-        APs_coverage = np.array(self.coverage).astype(int)
+        APs_coverage = self.coverage
         
-        connected = np.max(taxi_range + APs_coverage)
+        connected = APs_coverage[taxirow][taxicol]
         
         coverage_diff = 0
         
-        # The ap of the taxi(== the ap at the taxi) is connected to other aps.
-        if (np.max(connected) > 1):
+        if (connected == True):
             old = np.count_nonzero(APs_coverage) 
-            new = np.count_nonzero(taxi_range_temp + APs_coverage)
+            new = np.count_nonzero(taxi_range + APs_coverage)
             
             coverage_diff = new - old
-            
-            
         return connected, coverage_diff
         
     
@@ -220,8 +209,6 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                         elif ((j - col) < 0): # wall is at the west of the taxi
                             coverage[i][max(j-1,0)] = False
                             coverage[i][max(j-2,0)] = False
-                        
-        
         return coverage
     
     
@@ -243,9 +230,11 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         
         # Ap at the taxi
         taxi_range = self.taxi_coverage(taxirow, taxicol)
+        connected, coverage_diff = self.calculate_coverage_diff(taxirow, taxicol)
+        print(connected)
                 
                
-        if node_deployed < 1: # anchor in taxi
+        if node_deployed == False: # anchor in taxi
             out[1+taxirow][2*taxicol+1] = utils.colorize(out[1+taxirow][2*taxicol+1], 'yellow', highlight=True)
             
         else: # there is no anchor in the robot.     
