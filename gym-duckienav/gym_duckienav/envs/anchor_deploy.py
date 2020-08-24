@@ -61,65 +61,63 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         P = {s : {a : [] for a in range(nA)} for s in range(nS)}
         
         for init in range(4): # initail location good
-            self.coverage = np.zeros((14,9), dtype='bool')
-            self.fill_coverage(locs[init][0], locs[init][1])
-            
             for row in range(nR):
                 for col in range(nC):
                     for node_deployed in range(nAnchor+1): # anchor (on taxi or deployed)
 
-                                state = self.encode(init, row, col, node_deployed) 
-                        
-                                connected = self.connect_to_base(row, col) 
+                        state = self.encode(init, row, col, node_deployed) 
+                        self.coverage = np.zeros((14,9), dtype='bool')
+                        self.fill_coverage(locs[init][0], locs[init][1])
 
-                                if (row == locs[init][0] and col == locs[init][1]) \
-                                and (node_deployed == 0): 
-                                    isd[state] += 1
+                        connected = self.connect_to_base(row, col) 
 
-                                reward = -0.1
-                                done = False
-                                
-                                for a in range(nA):
-                                    # defaults
-                                    newrow, newcol, newnode_deployed = row, col, node_deployed
+                        if (row == locs[init][0] and col == locs[init][1]) \
+                        and (node_deployed == 0): 
+                            isd[state] += 1
+
+                        reward = -0.1
+                        done = False
+
+                        for a in range(nA):
+                            # defaults
+                            newrow, newcol, newnode_deployed = row, col, node_deployed
+
+                            # south
+                            if a==0 and self.desc[1+row + 1, 2*col+1] != b"O":
+                                newrow = min(row+1, maxR)
+
+                            # north
+                            elif a==1 and self.desc[1+row -1, 2*col+1] != b"O":
+                                newrow = max(row-1, 0)
+
+                            # east
+                            elif a==2 and self.desc[1+row,2*col+2]==b":":
+                                newcol = min(col+1, maxC)
+
+                            # west
+                            elif a==3 and self.desc[1+row,2*col]==b":":
+                                newcol = max(col-1, 0)
+
+                            # dropoff
+                            elif a==4: 
+
+                                if (node_deployed < 1): # anchor in the taxi
+                                    newnode_deployed = 1
+
                                     
-                                    # south
-                                    if a==0 and self.desc[1+row + 1, 2*col+1] != b"O":
-                                        newrow = min(row+1, maxR)
+                                    if (connected == True): # This ap is connected to base.
+                                        #(At that time, the location of deployed ap is the same as the robot.)
+                                        coverage_diff = self.calculate_coverage_diff(row, col,connected)
+                                        reward = 2*coverage_diff
+                                        self.fill_coverage(row, col)
+                                    done = True  # deploy all of the anchors
 
-                                    # north
-                                    elif a==1 and self.desc[1+row -1, 2*col+1] != b"O":
-                                        newrow = max(row-1, 0)
+                            if (connected == False): # the robot is disconnected.
+                                reward = reward -10
 
-                                    # east
-                                    elif a==2 and self.desc[1+row,2*col+2]==b":":
-                                        newcol = min(col+1, maxC)
-
-                                    # west
-                                    elif a==3 and self.desc[1+row,2*col]==b":":
-                                        newcol = max(col-1, 0)
-
-                                    # dropoff
-                                    elif a==4: 
-                                        
-                                        if (node_deployed < 1): # anchor in the taxi
-                                            newnode_deployed = 1
-                                            done = True  # deploy all of the anchors
-                                            
-                                            self.fill_coverage(row, col)
-                                            if (connected == True): # This ap is connected to others.(At that time, the location of deployed ap is the same as the robot.)
-                                                coverage_diff = self.calculate_coverage_diff(row, col)
-                                                reward = 2*coverage_diff
-                                                
-                                    if (connected == False): # the robot is disconnected.
-                                        reward = reward -10
-                                        
-#                                     else:                                        
-#                                         if ((abs(row - row) + abs(col - col)) > 3):
-#                                             reward = reward + 0.5*(abs(row - locs[init][0]) + abs(col - locs[init][1]))
-                                   
-                                    newstate = self.encode(init, newrow, newcol, newnode_deployed)
-                                    P[state][a].append((1.0, newstate, reward, done))
+                            newstate = self.encode(init, newrow, newcol, newnode_deployed)
+                            P[state][a].append((1.0, newstate, reward, done))
+                            
         isd /= isd.sum()
         discrete.DiscreteEnv.__init__(self, nS, nA, P, isd)
 
@@ -154,15 +152,19 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         self.coverage = self.coverage + Deploy_AP              
                        
 
-    def calculate_coverage_diff(self, taxirow, taxicol):
+    def calculate_coverage_diff(self, taxirow, taxicol,connected):
         
-        taxi_range = self.taxi_coverage(taxirow, taxicol)
-        APs_coverage = self.coverage
+        if connected == True:
+            taxi_range = self.taxi_coverage(taxirow, taxicol)
+            APs_coverage = self.coverage
 
-        old = np.count_nonzero(APs_coverage) 
-        new = np.count_nonzero(taxi_range + APs_coverage)
+            old = np.count_nonzero(APs_coverage) 
+            new = np.count_nonzero(taxi_range + APs_coverage)
 
-        coverage_diff = new - old
+            coverage_diff = new - old
+        else:
+            coverage_diff = 0
+            
         return coverage_diff
         
     def connect_to_base(self, taxirow, taxicol):
@@ -222,7 +224,7 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         
         # Ap at the taxi
         taxi_range = self.taxi_coverage(taxirow, taxicol)
-        print('connection: ',self.coverage[taxirow][taxicol],self.connect_to_base(taxirow, taxicol))
+        
                    
         if node_deployed == False: # anchor in taxi
             out[1+taxirow][2*taxicol+1] = utils.colorize(out[1+taxirow][2*taxicol+1], 'yellow', highlight=True)
@@ -234,15 +236,13 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                 self.node_row = taxirow
                 self.node_col = taxicol
                 
-                
-                
             out[1+self.node_row][2*self.node_col+1] = utils.colorize(ul(out[1+self.node_row][2*self.node_col+1]), 'blue', highlight=True)
             self.fill_coverage(self.node_row, self.node_col) 
                 # Bule: The location of deployed anchor
             
             out[1+taxirow][2*taxicol+1] = utils.colorize(ul(out[1+taxirow][2*taxicol+1]), 'gray', highlight=True)
            # Gray: robot without any anchors
-       
+        
         for row in range(nR):
             for col in range(nC):
                 if (self.coverage[row][col] == True) and (row!=taxirow or col != taxicol): 
