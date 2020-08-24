@@ -104,7 +104,6 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                                 if (node_deployed < 1): # anchor in the taxi
                                     newnode_deployed = 1
 
-                                    
                                     if (connected == True): # This ap is connected to base.
                                         #(At that time, the location of deployed ap is the same as the robot.)
                                         coverage_diff = self.calculate_coverage_diff(row, col,connected)
@@ -204,8 +203,6 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                             coverage[i][max(j-1,0)] = False
                             coverage[i][max(j-2,0)] = False
         return coverage
-    
-    
 
     def render(self, mode='human'):
         outfile = StringIO() if mode == 'ansi' else sys.stdout
