@@ -169,6 +169,7 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
         
         APs_coverage = self.coverage
         connected = APs_coverage[taxirow][taxicol]
+        return connected
         
     def taxi_coverage(self, row, col):
         coverage = np.zeros((14,9), dtype = 'bool')
