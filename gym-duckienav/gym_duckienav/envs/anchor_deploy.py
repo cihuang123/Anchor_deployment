@@ -114,7 +114,8 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                                             self.fill_coverage(row, col)
                                             if (connected == True): # This ap is connected to others.
                                                 reward = 2*coverage_diff
-                                                
+                                    
+                                    connected, coverage_diff = self.calculate_coverage_diff(newrow, newcol)
                                     if (connected == False):
                                         reward = reward -10  
 
@@ -239,8 +240,13 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
             
         else: # there is no anchor in the robot.     
             out[1+node_row][2*node_col+1] = utils.colorize(ul(out[1+node_row][2*node_col+1]), 'blue', highlight=True)
-            self.fill_coverage(node_row, node_col) 
-            # Bule: The location of deployed anchor
+            
+            
+            ap_connected_base = self.coverage[node_row][node_col]
+            
+            if (ap_connected_base == True):
+                self.fill_coverage(node_row, node_col) 
+                # Bule: The location of deployed anchor
             
             out[1+taxirow][2*taxicol+1] = utils.colorize(ul(out[1+taxirow][2*taxicol+1]), 'gray', highlight=True)
            # Gray: robot without any anchors
