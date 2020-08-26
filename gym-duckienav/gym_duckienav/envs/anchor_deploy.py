@@ -144,7 +144,6 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                                     P[state][a].append((1.0, newstate, reward, done))
 
         
-        print(P[95001])
         isd /= isd.sum()
         discrete.DiscreteEnv.__init__(self, nS, nA, P, isd)
 
