@@ -96,18 +96,26 @@ class DuckieNavEnvV3(discrete.DiscreteEnv):
                                     # south
                                     if a==0 and self.desc[1+row + 1, 2*col+1] != b"O":
                                         newrow = min(row+1, maxR)
+                                        if newrow!= row:
+                                            reward = 1
 
                                     # north
                                     elif a==1 and self.desc[1+row -1, 2*col+1] != b"O":
                                         newrow = max(row-1, 0)
+                                        if newrow!= row:
+                                            reward = 1
 
                                     # east
                                     elif a==2 and self.desc[1+row,2*col+2]==b":":
                                         newcol = min(col+1, maxC)
+                                        if newcol!= row:
+                                            reward = 1
 
                                     # west
                                     elif a==3 and self.desc[1+row,2*col]==b":":
                                         newcol = max(col-1, 0)
+                                        if newcol!= row:
+                                            reward = 1
 
                                     # dropoff
                                     elif a==4: 
