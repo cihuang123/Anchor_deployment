@@ -202,26 +202,26 @@ class DuckieNavEnvV3(Env):
         assert 0 <= i < 4 
         return reversed(out)
     
-    def state_encode(self, base, robot, anchor):
-        # (14*9), 14*9, 14*9
-        i = base
-        i *= (14*9)
-        i += robot
-        i *= (14*9)
-        i += anchor
+#     def state_encode(self, base, robot, anchor):
+#         # (14*9), 14*9, 14*9
+#         i = base
+#         i *= (14*9)
+#         i += robot
+#         i *= (14*9)
+#         i += anchor
         
-        return i 
+#         return i 
 
-    def state_decode(self, i):
-        out = []
+#     def state_decode(self, i):
+#         out = []
         
-        out.append(i % (14*9))
-        i = i // (14*9)
-        out.append(i % (14*9))
-        i = i // (14*9)
-        out.append(i)
-        assert 0 <= i < (14*9) 
-        return reversed(out)
+#         out.append(i % (14*9))
+#         i = i // (14*9)
+#         out.append(i % (14*9))
+#         i = i // (14*9)
+#         out.append(i)
+#         assert 0 <= i < (14*9) 
+#         return reversed(out)
     
     def fill_coverage(self, row, col): # All APs
         
